@@ -16,7 +16,7 @@ public class Elasticsearch01_Client {
         RestHighLevelClient client = new RestHighLevelClient(
                 RestClient.builder(new HttpHost("localhost", 9200, "http"))
         );
-// 关闭客户端连接
+        // 关闭客户端连接
         client.close();
 
     }
