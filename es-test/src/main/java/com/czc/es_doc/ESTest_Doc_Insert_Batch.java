@@ -31,13 +31,13 @@ public class ESTest_Doc_Insert_Batch {
         BulkRequest request = new BulkRequest();
         request.add(new
                 IndexRequest().index("user").id("1002").source(XContentType.JSON, "name",
-                "李四"));
+                "李四", "age", 20, "sex", "男"));
         request.add(new
                 IndexRequest().index("user").id("1003").source(XContentType.JSON, "name",
-                "王五"));
+                "王五", "age", 22, "sex", "女"));
         request.add(new
                 IndexRequest().index("user").id("1004").source(XContentType.JSON, "name",
-                "赵六"));
+                "赵六", "age", 23, "sex", "男"));
         //客户端发送请求，获取响应对象
         BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
         //打印结果信息

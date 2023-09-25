@@ -35,22 +35,22 @@ public class ESTest_Doc_Query {
                 RestClient.builder(new HttpHost("localhost", 9200, "http"))
         );
 
-        // 1. 查询索引中全部的数据
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        request.source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
-
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for ( SearchHit hit : hits ) {
-            System.out.println(hit.getSourceAsString());
-        }
+//        // 1. 查询索引中全部的数据
+//        SearchRequest request = new SearchRequest();
+//        request.indices("user");
+//
+//        request.source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
+//
+//        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
+//
+//        SearchHits hits = response.getHits();
+//
+//        System.out.println(hits.getTotalHits());
+//        System.out.println(response.getTook());
+//
+//        for ( SearchHit hit : hits ) {
+//            System.out.println(hit.getSourceAsString());
+//        }
 
         // 2. 条件查询 : termQuery
 //        SearchRequest request = new SearchRequest();
@@ -205,7 +205,7 @@ public class ESTest_Doc_Query {
 //        request.indices("user");
 //
 //        SearchSourceBuilder builder = new SearchSourceBuilder();
-//        TermsQueryBuilder termsQueryBuilder = QueryBuilders.termsQuery("name", "zhangsan");
+//        TermsQueryBuilder termsQueryBuilder = QueryBuilders.termsQuery("age", "18");
 //
 //        HighlightBuilder highlightBuilder = new HighlightBuilder();
 //        highlightBuilder.preTags("<font color='red'>");
@@ -227,26 +227,26 @@ public class ESTest_Doc_Query {
 //            System.out.println(hit.getSourceAsString());
 //        }
 
-//        // 10. 聚合查询
-//        SearchRequest request = new SearchRequest();
-//        request.indices("user");
-//
-//        SearchSourceBuilder builder = new SearchSourceBuilder();
-//
-//        AggregationBuilder aggregationBuilder = AggregationBuilders.max("maxAge").field("age");
-//        builder.aggregation(aggregationBuilder);
-//
-//        request.source(builder);
-//        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-//
-//        SearchHits hits = response.getHits();
-//
-//        System.out.println(hits.getTotalHits());
-//        System.out.println(response.getTook());
-//
-//        for ( SearchHit hit : hits ) {
-//            System.out.println(hit.getSourceAsString());
-//        }
+        // 10. 聚合查询
+        SearchRequest request = new SearchRequest();
+        request.indices("user");
+
+        SearchSourceBuilder builder = new SearchSourceBuilder();
+
+        AggregationBuilder aggregationBuilder = AggregationBuilders.max("maxAge").field("age");
+        builder.aggregation(aggregationBuilder);
+
+        request.source(builder);
+        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
+
+        SearchHits hits = response.getHits();
+
+        System.out.println(hits.getTotalHits());
+        System.out.println(response.getTook());
+
+        for ( SearchHit hit : hits ) {
+            System.out.println(hit.getSourceAsString());
+        }
 
 //        // 11. 分组查询
 //        SearchRequest request = new SearchRequest();
