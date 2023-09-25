@@ -130,10 +130,13 @@ class HotelSearchTest {
             Map<String, HighlightField> map = hit.getHighlightFields();
             // 2）根据字段名，获取高亮结果
             HighlightField highlightField = map.get("name");
-            // 3）获取高亮结果字符串数组中的第1个元素
-            String hName = highlightField.getFragments()[0].toString();
-            // 4）把高亮结果放到HotelDoc中
-            hotelDoc.setName(hName);
+            //这里如果没有设置高亮则会空指针异常，健壮性判断
+            if (highlightField != null) {
+                // 3）获取高亮结果字符串数组中的第1个元素
+                String hName = highlightField.getFragments()[0].toString();
+                // 4）把高亮结果放到HotelDoc中
+                hotelDoc.setName(hName);
+            }
             // 4.7.打印
             System.out.println(hotelDoc);
         }
