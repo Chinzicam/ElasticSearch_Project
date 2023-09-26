@@ -12,16 +12,32 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.suggest.Suggest;
+import org.elasticsearch.search.suggest.SuggestBuilder;
+import org.elasticsearch.search.suggest.SuggestBuilders;
+import org.elasticsearch.search.suggest.completion.CompletionSuggestion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * @author czc
+ */
 @Service
 public class HotelService extends ServiceImpl<HotelMapper, Hotel> implements IHotelService {
     @Autowired
@@ -55,6 +71,149 @@ public class HotelService extends ServiceImpl<HotelMapper, Hotel> implements IHo
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public Map<String, List<String>> getFilters(RequestParams params) {
+        try {
+            // 1.准备请求
+            SearchRequest request = new SearchRequest("hotel");
+            // 2.请求参数
+            // 2.1.query
+            buildBasicQuery(params, request);
+            // 2.2.size
+            request.source().size(0);
+            // 2.3.聚合
+            buildAggregations(request);
+            // 3.发出请求
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+            // 4.解析结果
+            Aggregations aggregations = response.getAggregations();
+            Map<String, List<String>> filters = new HashMap<>(3);
+            // 4.1.解析品牌
+            List<String> brandList = getAggregationByName(aggregations, "brandAgg");
+            filters.put("brand", brandList);
+            // 4.1.解析品牌
+            List<String> cityList = getAggregationByName(aggregations, "cityAgg");
+            filters.put("city", cityList);
+            // 4.1.解析品牌
+            List<String> starList = getAggregationByName(aggregations, "starAgg");
+            filters.put("starName", starList);
+
+            return filters;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public List<String> getSuggestion(String key) {
+        try {
+            // 1.准备请求
+            SearchRequest request = new SearchRequest("hotel");
+            // 2.请求参数
+            request.source().suggest(new SuggestBuilder()
+                    .addSuggestion(
+                            "hotelSuggest",
+                            SuggestBuilders
+                                    .completionSuggestion("suggestion")
+                                    .size(10)
+                                    .skipDuplicates(true)
+                                    .prefix(key)
+                    ));
+            // 3.发出请求
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+            // 4.解析
+            Suggest suggest = response.getSuggest();
+            // 4.1.根据名称获取结果
+            CompletionSuggestion suggestion = suggest.getSuggestion("hotelSuggest");
+            // 4.2.获取options
+            List<String> list = new ArrayList<>();
+            for (CompletionSuggestion.Entry.Option option : suggestion.getOptions()) {
+                // 4.3.获取补全的结果
+                String str = option.getText().toString();
+                // 4.4.放入集合
+                list.add(str);
+            }
+            return list;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<String> getAggregationByName(Aggregations aggregations, String aggName) {
+        // 4.1.根据聚合名称，获取聚合结果
+        Terms terms = aggregations.get(aggName);
+        // 4.2.获取buckets
+        List<? extends Terms.Bucket> buckets = terms.getBuckets();
+        // 4.3.遍历
+        List<String> list = new ArrayList<>(buckets.size());
+        for (Terms.Bucket bucket : buckets) {
+            String brandName = bucket.getKeyAsString();
+            list.add(brandName);
+        }
+        return list;
+    }
+
+    private void buildAggregations(SearchRequest request) {
+        request.source().aggregation(
+                AggregationBuilders.terms("brandAgg").field("brand").size(100));
+        request.source().aggregation(
+                AggregationBuilders.terms("cityAgg").field("city").size(100));
+        request.source().aggregation(
+                AggregationBuilders.terms("starAgg").field("starName").size(100));
+    }
+
+    private void buildBasicQuery(RequestParams params, SearchRequest request) {
+        // 1.准备Boolean查询
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        // 1.1.关键字搜索，match查询，放到must中
+        String key = params.getKey();
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(key)) {
+            // 不为空，根据关键字查询
+            boolQuery.must(QueryBuilders.matchQuery("all", key));
+        } else {
+            // 为空，查询所有
+            boolQuery.must(QueryBuilders.matchAllQuery());
+        }
+
+        // 1.2.品牌
+        String brand = params.getBrand();
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(brand)) {
+            boolQuery.filter(QueryBuilders.termQuery("brand", brand));
+        }
+        // 1.3.城市
+        String city = params.getCity();
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(city)) {
+            boolQuery.filter(QueryBuilders.termQuery("city", city));
+        }
+        // 1.4.星级
+        String starName = params.getStarName();
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(starName)) {
+            boolQuery.filter(QueryBuilders.termQuery("starName", starName));
+        }
+        // 1.5.价格范围
+        Integer minPrice = params.getMinPrice();
+        Integer maxPrice = params.getMaxPrice();
+        if (minPrice != null && maxPrice != null) {
+            maxPrice = maxPrice == 0 ? Integer.MAX_VALUE : maxPrice;
+            boolQuery.filter(QueryBuilders.rangeQuery("price").gte(minPrice).lte(maxPrice));
+        }
+
+        // 2.算分函数查询
+        FunctionScoreQueryBuilder functionScoreQuery = QueryBuilders.functionScoreQuery(
+                boolQuery, // 原始查询，boolQuery
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{ // function数组
+                        new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                                QueryBuilders.termQuery("isAD", true), // 过滤条件
+                                ScoreFunctionBuilders.weightFactorFunction(10) // 算分函数
+                        )
+                }
+        );
+
+        // 3.设置查询条件
+        request.source().query(functionScoreQuery);
     }
 
     // 结果解析依旧是封装为了一个函数
